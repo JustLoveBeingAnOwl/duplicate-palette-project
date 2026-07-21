@@ -1,0 +1,5 @@
+# Referenced for help regarding implementation of the BMP reading code. 
+https://engineering.purdue.edu/ece264/16au/hw/HW13
+https://engineering.purdue.edu/ece264/20sp/hw/EC01
+https://sxvyte.medium.com/image-processing-in-c-reading-writing-and-rotating-bmp-images-from-scratch-6eaa74c716cb
+https://elcharolin.wordpress.com/2018/11/28/read-and-write-bmp-files-in-c-c/
