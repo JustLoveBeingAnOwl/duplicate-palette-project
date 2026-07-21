@@ -1,3 +1,18 @@
+/*
+CS4463 - Steganography Class
+Project Members: Matthew M, Hannah M, and Evan H.
+
+This project for our steganography class is designed to test the "Duplicate Palette Approach" using the following parameters:
+- The Duplicate Palette approach only works if the number of colors used is less than or equal to 128.
+If the number of colors used is greater than 128, we need to reduce it to 128 or less. If it is less than 128, we can just use it as is.
+- Our implementation should allow the user to select between 1, 2, 3, or 4 embedding bits per pixel. 
+Supporting multiple embedding levels provides flexibility and allows us to evaluate the trade-offs between hiding capacity, visual quality, and detectability.
+- We will be using the interleaving approach for duplicate palette entries.
+This method makes the embedded message correspond to the least significant bits of the palette index and builds naturally on the LSB-based techniques that we covered throughout the course. 
+- We plan to compare different embedding levels using embedding capacity, image quality, extraction accuracy, and any observable statistical changes. 
+This comparison will demonstrate the trade-offs between capacity and detectability.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
