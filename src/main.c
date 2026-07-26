@@ -46,13 +46,38 @@ typedef struct {
 int main(int argc, char *argv[])
 {
     // Open the BMP file
-    FILE *file = fopen(argv[1], "rb");
-    if (!file) {
+    FILE *bmpfile = fopen(argv[1], "rb");
+    if (!bmpfile) {
         perror("Failed to open file");
         return 1;
     }
     printf("Opened BMP file successfully.\n");
-    // For now we just want to make sure we can open the file and check:
+
+    // Open the txt file that will store our message.
+    // We will take the message size and store it in the first few bytes of our carrier image
+    // Then we will store the message itself in the remaining bytes of our carrier image.
+    FILE *txtfile = fopen(argv[2], "rb");
+    if (!txtfile) {
+        perror("Failed to open the message file");
+        fclose(txtfile);
+        return 1;
+    }
+
+    // Get its size
+    fseek(txtfile, 0, SEEK_END);
+    long txt_size = ftell(txtfile);
+    rewind(txtfile);
+
+    //allocate memory to store the message
+    unsigned char *message = (char *)malloc(txt_size);
+    if (!message) {
+        fprintf(stderr, "Failed to allocate memory for the message.\n");
+        fclose(txtfile);
+        fclose(bmpfile);
+        return 1;
+    }
+
+    // Open the BMP file and read its headers to get the following information that's important for our steganography implementation: 
     // - It's size
     // - It's # of colors.
     // We need to check how many colors it contains because if it is >128, we need to reduce it to 128 or less. If it is less than 128, we can just use it as is.
@@ -60,13 +85,13 @@ int main(int argc, char *argv[])
     BmpFileHeader fileHeader;
     BmpInfoHeader infoHeader;
 
-    fread(&fileHeader, sizeof(BmpFileHeader), 1, file);
-    fread(&infoHeader, sizeof(BmpInfoHeader), 1, file);
+    fread(&fileHeader, sizeof(BmpFileHeader), 1, bmpfile);
+    fread(&infoHeader, sizeof(BmpInfoHeader), 1, bmpfile);
 
     //check if valid bmp file by looking at the header
     if (fileHeader.bfType != 0x4D42) {
         fprintf(stderr, "Not a valid BMP file.\n");
-        fclose(file);
+        fclose(bmpfile);
         return 1;
     }
 
@@ -77,14 +102,14 @@ int main(int argc, char *argv[])
     if (infoHeader.biBitCount != 8) {
         fprintf(stderr, "bitCount: %d\n", infoHeader.biBitCount);
         fprintf(stderr, "This program only supports 8-bit BMP files. Please convert the image to 8-bit using a third-party software.\n");
-        fclose(file);
+        fclose(bmpfile);
         return 1;
     }
     printf("bitCount: %d\n", infoHeader.biBitCount);
     if (infoHeader.biClrUsed > 128) {
         fprintf(stderr, "biClrUsed: %d\n", infoHeader.biClrUsed);
         fprintf(stderr, "This program only supports BMP files with 128 or fewer colors. Please reduce the number of colors to 128 or less using a third-party software.\n");
-        fclose(file);
+        fclose(bmpfile);
         return 1;
     }
     printf("biClrUsed: %d\n", infoHeader.biClrUsed);
@@ -101,16 +126,16 @@ int main(int argc, char *argv[])
     unsigned char* data = (unsigned char*)malloc(data_size);
     if (!data) {
         printf("Error: Memory allocation failed.\n");
-        fclose(file);
+        fclose(bmpfile);
         return 1;
     }
 
     // Jump to pixel data position and read it
-    fseek(file, fileHeader.bfOffBits, SEEK_SET);
-    fread(data, 1, data_size, file);
+    fseek(bmpfile, fileHeader.bfOffBits, SEEK_SET);
+    fread(data, 1, data_size, bmpfile);
 
     // Close the BMP file
-    fclose(file);
+    fclose(bmpfile);
 
     return 0;
 }
