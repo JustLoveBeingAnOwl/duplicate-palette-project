@@ -45,6 +45,12 @@ typedef struct {
 
 int main(int argc, char *argv[])
 {
+    // check correct number of arguments
+    if (argc != 3) {
+        fprintf(stderr, "Not Enough Arguments! Need: %s <bmp_file> <message_file>\n", argv[0]);
+        return 1;
+    }
+
     // Open the BMP file
     FILE *bmpfile = fopen(argv[1], "rb");
     if (!bmpfile) {
