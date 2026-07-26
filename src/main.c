@@ -53,30 +53,6 @@ int main(int argc, char *argv[])
     }
     printf("Opened BMP file successfully.\n");
 
-    // Open the txt file that will store our message.
-    // We will take the message size and store it in the first few bytes of our carrier image
-    // Then we will store the message itself in the remaining bytes of our carrier image.
-    FILE *txtfile = fopen(argv[2], "rb");
-    if (!txtfile) {
-        perror("Failed to open the message file");
-        fclose(txtfile);
-        return 1;
-    }
-
-    // Get its size
-    fseek(txtfile, 0, SEEK_END);
-    long txt_size = ftell(txtfile);
-    rewind(txtfile);
-
-    //allocate memory to store the message
-    unsigned char *message = (char *)malloc(txt_size);
-    if (!message) {
-        fprintf(stderr, "Failed to allocate memory for the message.\n");
-        fclose(txtfile);
-        fclose(bmpfile);
-        return 1;
-    }
-
     // Open the BMP file and read its headers to get the following information that's important for our steganography implementation: 
     // - It's size
     // - It's # of colors.
@@ -97,7 +73,7 @@ int main(int argc, char *argv[])
 
     //before continuing, do some checks:
     // - is 8-bit bmp
-    // - is less than or equal to 128 colors
+    // - palette is less than or equal to 128 colors
     // for either, print a message you need to use a third-party software to convert the image to 8-bit and/or reduce the number of colors to 128 or less.
     if (infoHeader.biBitCount != 8) {
         fprintf(stderr, "bitCount: %d\n", infoHeader.biBitCount);
@@ -134,8 +110,39 @@ int main(int argc, char *argv[])
     fseek(bmpfile, fileHeader.bfOffBits, SEEK_SET);
     fread(data, 1, data_size, bmpfile);
 
-    // Close the BMP file
+    
+    // Open the txt file that will store our message.
+    // We will take the message size and store it in the first few bytes of our carrier image
+    // Then we will store the message itself in the remaining bytes of our carrier image.
+    FILE *txtfile = fopen(argv[2], "rb");
+    if (!txtfile) {
+        perror("Failed to open the message file");
+        fclose(bmpfile);
+        return 1;
+    }
+
+    // Get its size
+    fseek(txtfile, 0, SEEK_END);
+    long txt_size = ftell(txtfile);
+    rewind(txtfile);
+
+    //allocate memory to store the message
+    unsigned char *message = (char *)malloc(txt_size);
+    if (!message) {
+        fprintf(stderr, "Failed to allocate memory for the message.\n");
+        fclose(txtfile);
+        fclose(bmpfile);
+        return 1;
+    }
+
+    // store the message in the allocated memory
+    fread(message, 1, txt_size, txtfile);
+
+    // Close the files and free the allocated memory
+    fclose(txtfile);
     fclose(bmpfile);
+    free(data);
+    free(message);
 
     return 0;
 }
