@@ -16,10 +16,13 @@ This comparison will demonstrate the trade-offs between capacity and detectabili
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <math.h>
+
+#include "extract.h"
 
 #pragma pack(push, 1)
-typedef struct {
+
+typedef struct
+{
     uint16_t bfType;
     uint32_t bfSize;
     uint16_t bfReserved1;
@@ -27,7 +30,8 @@ typedef struct {
     uint32_t bfOffBits;
 } BmpFileHeader;
 
-typedef struct {
+typedef struct
+{
     uint32_t biSize;
     int32_t biWidth;
     int32_t biHeight;
@@ -57,6 +61,7 @@ int main(int argc, char *argv[])
         perror("Failed to open file");
         return 1;
     }
+
     printf("Opened BMP file successfully.\n");
 
     // Open the BMP file and read its headers to get the following information that's important for our steganography implementation: 
@@ -98,10 +103,19 @@ int main(int argc, char *argv[])
     //note, this doesn't truly check color count in the palette, it only checks the biClrUsed field in the header.
     // TODO: Implement a function to read the color palette and count the actual number of unique colors used in the image.
 
-    // Calculate the size of the image data
+    printf("Image Information\n");
+    printf("-----------------\n");
+    printf("Width      : %d\n", infoHeader.biWidth);
+    printf("Height     : %d\n", infoHeader.biHeight);
+    printf("Bit Count  : %d\n", infoHeader.biBitCount);
+    printf("Colors Used: %u\n", infoHeader.biClrUsed);
+    printf("Image Size : %u\n\n", infoHeader.biSizeImage);
+
     size_t data_size = infoHeader.biSizeImage;
-    if (data_size == 0) {
-        data_size = infoHeader.biWidth * infoHeader.biHeight;
+
+    if (data_size == 0)
+    {
+        data_size = infoHeader.biWidth * abs(infoHeader.biHeight);
     }
     
     // Calculate the size of the image data
@@ -149,6 +163,29 @@ int main(int argc, char *argv[])
     fclose(bmpfile);
     free(data);
     free(message);
+
+    printf("Pixel data successfully loaded.\n\n");
+
+    int bits;
+
+    printf("Bits per pixel to extract (1-4): ");
+
+    if (scanf("%d", &bits) != 1 || bits < 1 || bits > 4)
+    {
+        printf("Invalid selection.\n");
+        free(data);
+        return 1;
+    }
+
+    printf("\nCalling extractMessage()...\n\n");
+
+    extractMessage(data,
+                   (int)data_size,
+                   bits);
+
+    free(data);
+
+    printf("\nProgram finished successfully.\n");
 
     return 0;
 }
