@@ -49,14 +49,28 @@ typedef struct
 
 int main(int argc, char *argv[])
 {
-    // check correct number of arguments
-    if (argc != 3) {
-        fprintf(stderr, "Not Enough Arguments! Need: %s <bmp_file> <message_file>\n", argv[0]);
+    // int value to check if the user has selected embedding or extraction. It should be either 1 or 2. End program if otherwise.
+    int mode = atoi(argv[1]);
+
+    if (mode != 1 && mode != 2) {
+        fprintf(stderr, "Invalid mode! Please select either 1 for embedding or 2 for extraction.\n");
+        return 1;
+    }
+
+    // check correct number of arguments for embedding.
+    if (mode == 1 && argc != 4) {
+        fprintf(stderr, "Incorrect Number of Arguments! Need: %s <mode> <bmp_file> <message_file>\n", argv[0]);
+        return 1;
+    }
+
+    // check correct number of arguments for extraction. We do not need the message file for extraction, so we only need 3 arguments.
+    if (mode == 2 && argc != 3) {
+        fprintf(stderr, "Incorrect Number of Arguments! Need: %s <mode> <bmp_file>\n", argv[0]);
         return 1;
     }
 
     // Open the BMP file
-    FILE *bmpfile = fopen(argv[1], "rb");
+    FILE *bmpfile = fopen(argv[3], "rb");
     if (!bmpfile) {
         perror("Failed to open file");
         return 1;
@@ -92,14 +106,14 @@ int main(int argc, char *argv[])
         fclose(bmpfile);
         return 1;
     }
-    printf("bitCount: %d\n", infoHeader.biBitCount);
+
     if (infoHeader.biClrUsed > 128) {
         fprintf(stderr, "biClrUsed: %d\n", infoHeader.biClrUsed);
         fprintf(stderr, "This program only supports BMP files with 128 or fewer colors. Please reduce the number of colors to 128 or less using a third-party software.\n");
         fclose(bmpfile);
         return 1;
     }
-    printf("biClrUsed: %d\n", infoHeader.biClrUsed);
+
     //note, this doesn't truly check color count in the palette, it only checks the biClrUsed field in the header.
     // TODO: Implement a function to read the color palette and count the actual number of unique colors used in the image.
 
@@ -130,59 +144,65 @@ int main(int argc, char *argv[])
     fseek(bmpfile, fileHeader.bfOffBits, SEEK_SET);
     fread(data, 1, data_size, bmpfile);
 
-    
+    // if we are in extraction mode (1), we need to extract the message from the image. We will do this by calling the extractMessage() function.
+    // if mode == 2, embedding mode, we skip anything to do with the message file and just extract the message from the image.
+    if (mode == 1 ){
+        printf("-- Embedding mode selected --\n");
+        FILE *txtfile = fopen(argv[2], "rb");
+        if (!txtfile) {
+            perror("Failed to open the message file");
+            fclose(bmpfile);
+            return 1;
+        }
+
+        // Get its size
+        fseek(txtfile, 0, SEEK_END);
+        long txt_size = ftell(txtfile);
+        rewind(txtfile);
+
+        //allocate memory to store the message
+        unsigned char *message = (char *)malloc(txt_size);
+        if (!message) {
+            fprintf(stderr, "Failed to allocate memory for the message.\n");
+            fclose(txtfile);
+            fclose(bmpfile);
+            return 1;
+        }
+
+        // store the message in the allocated memory
+        fread(message, 1, txt_size, txtfile);
+
+        printf("Message data successfully loaded.\n\n");
+
+        // Close the files and free the allocated memory
+        // it is only used in embedding mode, so we can free it after we are done with it.
+        fclose(txtfile);
+        free(message);
+    }
+
     // Open the txt file that will store our message.
     // We will take the message size and store it in the first few bytes of our carrier image
     // Then we will store the message itself in the remaining bytes of our carrier image.
-    FILE *txtfile = fopen(argv[2], "rb");
-    if (!txtfile) {
-        perror("Failed to open the message file");
-        fclose(bmpfile);
-        return 1;
-    }
+    if (mode == 2) {
+        printf("-- Extraction mode selected --\n");
+        printf("Pixel data successfully loaded.\n\n");
+        int bits;
+        printf("Bits per pixel to extract (1-4): ");
+        if (scanf("%d", &bits) != 1 || bits < 1 || bits > 4)
+        {
+            printf("Invalid selection.\n");
+            free(data);
+            return 1;
+        }
 
-    // Get its size
-    fseek(txtfile, 0, SEEK_END);
-    long txt_size = ftell(txtfile);
-    rewind(txtfile);
+        printf("\nCalling extractMessage()...\n\n");
 
-    //allocate memory to store the message
-    unsigned char *message = (char *)malloc(txt_size);
-    if (!message) {
-        fprintf(stderr, "Failed to allocate memory for the message.\n");
-        fclose(txtfile);
-        fclose(bmpfile);
-        return 1;
-    }
-
-    // store the message in the allocated memory
-    fread(message, 1, txt_size, txtfile);
-
-    // Close the files and free the allocated memory
-    fclose(txtfile);
-    fclose(bmpfile);
-    free(data);
-    free(message);
-
-    printf("Pixel data successfully loaded.\n\n");
-
-    int bits;
-
-    printf("Bits per pixel to extract (1-4): ");
-
-    if (scanf("%d", &bits) != 1 || bits < 1 || bits > 4)
-    {
-        printf("Invalid selection.\n");
-        free(data);
-        return 1;
-    }
-
-    printf("\nCalling extractMessage()...\n\n");
-
-    extractMessage(data,
+        extractMessage(data,
                    (int)data_size,
                    bits);
-
+    }
+    // the bmp file is used for both embedding and extraction, so we can close it at the end of the program.
+    fclose(bmpfile);
     free(data);
 
     printf("\nProgram finished successfully.\n");
