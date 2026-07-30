@@ -5,11 +5,11 @@ Project Members: Matthew M, Hannah M, and Evan H.
 This project for our steganography class is designed to test the "Duplicate Palette Approach" using the following parameters:
 - The Duplicate Palette approach only works if the number of colors used is less than or equal to 128.
 If the number of colors used is greater than 128, we need to reduce it to 128 or less. If it is less than 128, we can just use it as is.
-- Our implementation should allow the user to select between 1, 2, 3, or 4 embedding bits per pixel. 
+- Our implementation should allow the user to select between 1, 2, 3, or 4 embedding bits per pixel.
 Supporting multiple embedding levels provides flexibility and allows us to evaluate the trade-offs between hiding capacity, visual quality, and detectability.
 - We will be using the interleaving approach for duplicate palette entries.
-This method makes the embedded message correspond to the least significant bits of the palette index and builds naturally on the LSB-based techniques that we covered throughout the course. 
-- We plan to compare different embedding levels using embedding capacity, image quality, extraction accuracy, and any observable statistical changes. 
+This method makes the embedded message correspond to the least significant bits of the palette index and builds naturally on the LSB-based techniques that we covered throughout the course.
+- We plan to compare different embedding levels using embedding capacity, image quality, extraction accuracy, and any observable statistical changes.
 This comparison will demonstrate the trade-offs between capacity and detectability.
 */
 
@@ -17,7 +17,8 @@ This comparison will demonstrate the trade-offs between capacity and detectabili
 #include <stdlib.h>
 #include <stdint.h>
 
-#include "extract.h"
+#include "extract.c"
+#include "embed.c"
 
 #pragma pack(push, 1)
 
@@ -52,70 +53,54 @@ int main(int argc, char *argv[])
     // int value to check if the user has selected embedding or extraction. It should be either 1 or 2. End program if otherwise.
     int mode = atoi(argv[1]);
 
-    if (mode != 1 && mode != 2) {
+    if (mode != 1 && mode != 2)
+    {
         fprintf(stderr, "Invalid mode! Please select either 1 for embedding or 2 for extraction.\n");
         return 1;
     }
 
-    // check correct number of arguments for embedding.
-    if (mode == 1 && argc != 4) {
-        fprintf(stderr, "Incorrect Number of Arguments! Need: %s <mode> <bmp_file> <message_file>\n", argv[0]);
+    // Check correct number of arguments for embedding.
+    if (mode == 1 && argc != 5)
+    {
+        fprintf(stderr, "Incorrect Number of Arguments! Need: %s <mode> <bmp_file> <message_file> <output_file>\n", argv[0]);
         return 1;
     }
 
-    // check correct number of arguments for extraction. We do not need the message file for extraction, so we only need 3 arguments.
-    if (mode == 2 && argc != 3) {
+    // Check correct number of arguments for extraction. We do not need the message file for extraction, so we only need 3 arguments.
+    if (mode == 2 && argc != 3)
+    {
         fprintf(stderr, "Incorrect Number of Arguments! Need: %s <mode> <bmp_file>\n", argv[0]);
         return 1;
     }
 
-    // Open the BMP file
-    FILE *bmpfile = fopen(argv[3], "rb");
-    if (!bmpfile) {
-        perror("Failed to open file");
+    // Open the BMP file.
+    FILE *bmpfile = fopen(argv[2], "rb");
+    if (!bmpfile)
+    {
+        perror("Failed to open file.\n");
         return 1;
     }
 
-    printf("Opened BMP file successfully.\n");
+    printf("\nOpened BMP file successfully.\n\n");
 
-    // Open the BMP file and read its headers to get the following information that's important for our steganography implementation: 
+    // Open the BMP file and read its headers to get the following information that's important for our steganography implementation:
     // - It's size
     // - It's # of colors.
     // We need to check how many colors it contains because if it is >128, we need to reduce it to 128 or less. If it is less than 128, we can just use it as is.
-    // Read Headers
+    // Read Headers.
     BmpFileHeader fileHeader;
     BmpInfoHeader infoHeader;
 
     fread(&fileHeader, sizeof(BmpFileHeader), 1, bmpfile);
     fread(&infoHeader, sizeof(BmpInfoHeader), 1, bmpfile);
 
-    //check if valid bmp file by looking at the header
-    if (fileHeader.bfType != 0x4D42) {
+    // Check if valid bmp file by looking at the header.
+    if (fileHeader.bfType != 0x4D42)
+    {
         fprintf(stderr, "Not a valid BMP file.\n");
         fclose(bmpfile);
         return 1;
     }
-
-    //before continuing, do some checks:
-    // - is 8-bit bmp
-    // - palette is less than or equal to 128 colors
-    // for either, print a message you need to use a third-party software to convert the image to 8-bit and/or reduce the number of colors to 128 or less.
-    if (infoHeader.biBitCount != 8) {
-        fprintf(stderr, "bitCount: %d\n", infoHeader.biBitCount);
-        fprintf(stderr, "This program only supports 8-bit BMP files. Please convert the image to 8-bit using a third-party software.\n");
-        fclose(bmpfile);
-        return 1;
-    }
-
-    if (infoHeader.biClrUsed > 128) {
-        fprintf(stderr, "biClrUsed: %d\n", infoHeader.biClrUsed);
-        fprintf(stderr, "This program only supports BMP files with 128 or fewer colors. Please reduce the number of colors to 128 or less using a third-party software.\n");
-        fclose(bmpfile);
-        return 1;
-    }
-
-    //note, this doesn't truly check color count in the palette, it only checks the biClrUsed field in the header.
-    // TODO: Implement a function to read the color palette and count the actual number of unique colors used in the image.
 
     printf("Image Information\n");
     printf("-----------------\n");
@@ -131,60 +116,53 @@ int main(int argc, char *argv[])
     {
         data_size = infoHeader.biWidth * abs(infoHeader.biHeight);
     }
-    
-    // Calculate the size of the image data
+
+    // Calculate the size of the image data.
     unsigned char* data = (unsigned char*)malloc(data_size);
-    if (!data) {
+    if (!data)
+    {
         printf("Error: Memory allocation failed.\n");
         fclose(bmpfile);
         return 1;
     }
 
-    // Jump to pixel data position and read it
+    // Jump to pixel data position and read it.
     fseek(bmpfile, fileHeader.bfOffBits, SEEK_SET);
     fread(data, 1, data_size, bmpfile);
 
-    // if we are in extraction mode (1), we need to extract the message from the image. We will do this by calling the extractMessage() function.
-    // if mode == 2, embedding mode, we skip anything to do with the message file and just extract the message from the image.
-    if (mode == 1 ){
-        printf("-- Embedding mode selected --\n");
-        FILE *txtfile = fopen(argv[2], "rb");
-        if (!txtfile) {
-            perror("Failed to open the message file");
-            fclose(bmpfile);
-            return 1;
-        }
+    // If mode == 1, embedding mode (1), we need to embed the message into the image. We will do this by calling the encryptBitmapFile() function.
+    // If we are in extraction mode (2), we need to extract the message from the image. We will do this by calling the extractMessage() function.
+    if (mode == 1 )
+    {
+        printf("-- Embedding mode selected --\n\n");
 
-        // Get its size
-        fseek(txtfile, 0, SEEK_END);
-        long txt_size = ftell(txtfile);
-        rewind(txtfile);
+        // Get data from bitmap image, where each element in the array bmpFile is one byte in hex.
+        unsigned int bmpFileSize;
+        unsigned char *coverFile = readBitmapFile(argv[2], &bmpFileSize);
 
-        //allocate memory to store the message
-        unsigned char *message = (char *)malloc(txt_size);
-        if (!message) {
-            fprintf(stderr, "Failed to allocate memory for the message.\n");
-            fclose(txtfile);
-            fclose(bmpfile);
-            return 1;
-        }
+        // Get each character from text file, where each element in the array txtFile is one ASCII character.
+        unsigned int txtFileSize;
+        unsigned char *txtFile = readTextFile(argv[3], &txtFileSize);
 
-        // store the message in the allocated memory
-        fread(message, 1, txt_size, txtfile);
+        // Get stego image data.
+        unsigned int bitsPerPixel;
+        unsigned char *encryptedFile = encryptBitmapFile(argv[2], coverFile, &bmpFileSize, txtFile, &txtFileSize, &bitsPerPixel);
 
-        printf("Message data successfully loaded.\n\n");
+        // Create stego image file.
+        writeBitmapFile(argv[4], encryptedFile, bmpFileSize);
 
-        // Close the files and free the allocated memory
-        // it is only used in embedding mode, so we can free it after we are done with it.
-        fclose(txtfile);
-        free(message);
+        // Free memory.
+        free(coverFile);
+        free(txtFile);
+        free(encryptedFile);
     }
 
     // Open the txt file that will store our message.
-    // We will take the message size and store it in the first few bytes of our carrier image
+    // We will take the message size and store it in the first few bytes of our carrier image.
     // Then we will store the message itself in the remaining bytes of our carrier image.
-    if (mode == 2) {
-        printf("-- Extraction mode selected --\n");
+    if (mode == 2)
+    {
+        printf("-- Extraction mode selected --\n\n");
         printf("Pixel data successfully loaded.\n\n");
         int bits;
         printf("Bits per pixel to extract (1-4): ");
@@ -201,7 +179,8 @@ int main(int argc, char *argv[])
                    (int)data_size,
                    bits);
     }
-    // the bmp file is used for both embedding and extraction, so we can close it at the end of the program.
+
+    // The bmp file is used for both embedding and extraction, so we can close it at the end of the program.
     fclose(bmpfile);
     free(data);
 
